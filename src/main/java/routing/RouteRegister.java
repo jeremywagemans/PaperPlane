@@ -1,47 +1,67 @@
 package routing;
 
-import routing.annotations.Resource;
+import org.reflections.Reflections;
 
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
-import java.util.SortedSet;
 
 public class RouteRegister {
 
-    SortedSet<Route> routes;
+    InjectorAdapter injector;
+    Map<String, Resource> resources;
 
-    public void register(String pckage) {
-        if(pckage == null || pckage.equals("")) {
-            throw new IllegalArgumentException("Package name can't be empty.");
-        }
-
+    public RouteRegister(InjectorAdapter injector) {
+        this.injector = injector;
+        this.resources = new HashMap<String, Resource>();
     }
 
-    public void register(Object instance) {
-
+    public void register(String pckage) {
+        final Reflections reflections = new Reflections(pckage);
+        final Set<Class<?>> resourceClasses = reflections.getTypesAnnotatedWith(routing.annotations.Resource.class);
+        for(Class<?> resourceClass : resourceClasses) {
+            register(resourceClass);
+        }
     }
 
     public void register(Class<?> cl) {
-        analyzeClass(cl);
+        Object instance = injector.getInstance(cl);
+        register(instance);
     }
 
-    private void analyzeClass(Class<?> cl) {
-        String endpoint = cl.getAnnotation(Resource.class).endpoint();
-        for (Method method : cl.getDeclaredMethods()) {
-            if (method.isAnnotationPresent(routing.annotations.Route.class)) {
-                routing.annotations.Route annotRoute =
-                        method.getDeclaredAnnotation(routing.annotations.Route.class);
-                PathTemplate pathTemplate = new PathTemplate(endpoint + annotRoute.template());
-                Object serviceInstance = null; // TODO
-                Route route = new Route(annotRoute.method(), pathTemplate, service, serviceInstance,
-                        method, annotRoute.contentType());
-                routes.add(route);
+    public void register(Object instance) {
+        Resource resource = fetchResource(instance);
+        resources.put(resource.getEndpoint(), resource);
+    }
+
+    private Resource fetchResource(Object instance) {
+        Class<?> implClass = instance.getClass();
+        routing.annotations.Resource resourceAnnotation =
+                implClass.getDeclaredAnnotation(routing.annotations.Resource.class);
+        Resource resource = new Resource(resourceAnnotation.name(), resourceAnnotation.endpoint(),
+                resourceAnnotation.description(), instance);
+        for(Method method : implClass.getDeclaredMethods()) {
+            if(!method.isAnnotationPresent(routing.annotations.SubResource.class)) {
+                continue;
             }
+            SubResource subResource = fetchSubResource(method, resource);
+            resource.addSubResource(subResource);
         }
+        return resource;
     }
 
-    Set<Route> getRoutes() {
-        return routes;
+    private SubResource fetchSubResource(Method implMethod, Resource parentResource) {
+        routing.annotations.SubResource subResourceAnnotation =
+                implMethod.getDeclaredAnnotation(routing.annotations.SubResource.class);
+        PathTemplate pathTemplate = new PathTemplate(subResourceAnnotation.path());
+        SubResource subResource = new SubResource(subResourceAnnotation.method(), pathTemplate, implMethod,
+                subResourceAnnotation.description(), parentResource);
+        return subResource;
+    }
+
+    public Map<String, Resource> retrieveRoutes() {
+        return this.resources;
     }
 
 }

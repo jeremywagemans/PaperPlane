@@ -2,8 +2,9 @@ package routing.annotations;
 
 import http.HttpMethod;
 
-public @interface Route {
+public @interface SubResource {
     String path();
-    HttpMethod[] methods();
+    HttpMethod method();
     String[] accept() default "";
+    String description() default "";
 }

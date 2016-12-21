@@ -1,9 +1,6 @@
-package context;
+package routing;
 
 import authentication.Guard;
-import routing.RouteRegister;
-
-import static context.ContextAttribute.*;
 
 import javax.servlet.ServletContext;
 import java.util.HashSet;
@@ -11,20 +8,30 @@ import java.util.Set;
 
 public class ContextBuilder {
 
-    InjectorAdapter injector;
+    String appName;
+    boolean enabledDoc;
     Set<Guard> guards;
     RouteRegister routeRegister;
 
-    public ContextBuilder() {
+    public ContextBuilder(InjectorAdapter injector) {
         this.guards = new HashSet<Guard>();
-        this.routeRegister = new RouteRegister();
+        this.routeRegister = new RouteRegister(injector);
     }
 
-    public ContextBuilder useDependencyInjector(InjectorAdapter injector) {
-        if(injector == null) {
-            throw new IllegalArgumentException("A dependency injector adapter can't be null.");
+    public ContextBuilder() {
+        this(new DefaultInjectorAdapter());
+    }
+
+    public ContextBuilder registerAppName(String appName) {
+        if(appName == null || appName.equals("")) {
+            throw new IllegalArgumentException("The app name can't be null.");
         }
-        this.injector = injector;
+        this.appName = appName;
+        return this;
+    }
+
+    public ContextBuilder enableDocs(Boolean enabled) {
+        this.enabledDoc = enabled;
         return this;
     }
 
@@ -60,9 +67,9 @@ public class ContextBuilder {
         return this;
     }
 
-    void populateServletContext(ServletContext context) {
-        context.setAttribute(GUARDS, guards);
-        context.setAttribute(INJECTOR_ADAPTER, injector);
+    void create(ServletContext context) {
+        context.setAttribute(ContextAttribute.GUARDS, guards);
+        context.setAttribute(ContextAttribute.ROUTES, routeRegister.retrieveRoutes());
     }
 
 }

@@ -25,7 +25,7 @@ public class RouteResolver {
      *
      * @param httpMethod the HTTP method with which the request was made.
      * @param path the URL the client sent when it made the request
-     * @return the required Route instance
+     * @return the required SubResource instance
      * @throws RouteNotFoundException if no route matching the request has been found
      */
     public Route findRoute(HttpMethod httpMethod, String path) {
